@@ -96,14 +96,14 @@ export function DashboardFilters({ filterOptions }: DashboardFiltersProps) {
           style={{ display: 'none' }}
         />
         <button className="btn btn-ghost" onClick={handleImport}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ marginRight: 6 }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M8 2v8M4 6l4-4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
           Importar Excel
         </button>
         <button className="btn btn-primary" onClick={handleExport}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ marginRight: 6 }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M8 10V2M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>

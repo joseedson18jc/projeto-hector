@@ -6,7 +6,7 @@ import type { CategoryDistribution } from '@/lib/types';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-const COLORS = ['#6c5ce7', '#00b894', '#fdcb6e', '#e17055', '#a29bfe', '#55efc4'];
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#818cf8', '#34d399'];
 
 interface CategoryChartProps {
   categories: CategoryDistribution[];
@@ -49,7 +49,7 @@ export function CategoryChart({ categories }: CategoryChartProps) {
                 },
               },
               tooltip: {
-                backgroundColor: '#1a1a2e',
+                backgroundColor: '#111827',
                 titleFont: { family: 'Inter', weight: 'bold' },
                 bodyFont: { family: 'Inter' },
                 cornerRadius: 8,

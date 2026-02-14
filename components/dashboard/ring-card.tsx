@@ -21,7 +21,7 @@ export function RingCard({ completionRate }: RingCardProps) {
             datasets: [
               {
                 data: [completionRate, remaining],
-                backgroundColor: ['#6c5ce7', '#eef0f5'],
+                backgroundColor: ['#6366f1', '#f0f1f3'],
                 borderWidth: 0,
                 borderRadius: 6,
               },
