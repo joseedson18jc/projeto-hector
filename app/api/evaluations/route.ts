@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllEvaluations, createEvaluation } from '@/lib/queries';
 
-export function GET() {
-  return NextResponse.json(getAllEvaluations());
+export async function GET() {
+  return NextResponse.json(await getAllEvaluations());
 }
 
 export async function POST(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  const evaluation = createEvaluation({
+  const evaluation = await createEvaluation({
     employee_id,
     status,
     category,

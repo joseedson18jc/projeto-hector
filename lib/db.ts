@@ -1,17 +1,29 @@
-import Database from 'better-sqlite3';
-import path from 'path';
+import { createClient, type Client } from '@libsql/client';
 import { seed } from './seed';
 
-const DB_PATH = path.join(process.cwd(), 'data', 'dashboard.db');
+let _client: Client | null = null;
+let _seeded = false;
 
-let _db: Database.Database | null = null;
-
-export function getDb(): Database.Database {
-  if (!_db) {
-    _db = new Database(DB_PATH);
-    _db.pragma('journal_mode = WAL');
-    _db.pragma('foreign_keys = ON');
-    seed(_db);
+export function getClient(): Client {
+  if (!_client) {
+    const url = process.env.TURSO_DATABASE_URL;
+    if (url) {
+      _client = createClient({
+        url,
+        authToken: process.env.TURSO_AUTH_TOKEN,
+      });
+    } else {
+      _client = createClient({ url: 'file:data/dashboard.db' });
+    }
   }
-  return _db;
+  return _client;
+}
+
+export async function getDb(): Promise<Client> {
+  const client = getClient();
+  if (!_seeded) {
+    await seed(client);
+    _seeded = true;
+  }
+  return client;
 }

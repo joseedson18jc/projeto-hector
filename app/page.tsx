@@ -1,4 +1,3 @@
-import { Header } from '@/components/dashboard/header';
 import { RingCard } from '@/components/dashboard/ring-card';
 import { KpiRow } from '@/components/dashboard/kpi-row';
 import { AreaBars } from '@/components/dashboard/area-bars';
@@ -14,15 +13,20 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export default function Dashboard() {
-  const stats = getDashboardStats();
-  const employees = getAllEmployeesWithStatus();
-  const areas = getAreaProgress();
-  const categories = getCategoryDistribution();
+export default async function Dashboard() {
+  const [stats, employees, areas, categories] = await Promise.all([
+    getDashboardStats(),
+    getAllEmployeesWithStatus(),
+    getAreaProgress(),
+    getCategoryDistribution(),
+  ]);
 
   return (
     <>
-      <Header employeeCount={stats.total} />
+      <div className="page-title-row">
+        <h1 className="page-title">Acompanhamento de Avaliações</h1>
+        <span className="badge">{stats.total} funcionários</span>
+      </div>
 
       <div className="top-grid">
         <RingCard completionRate={stats.completion_rate} />

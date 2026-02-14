@@ -5,7 +5,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
-  const employee = getEmployee(Number(id));
+  const employee = await getEmployee(Number(id));
   if (!employee) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json(employee);
 }
@@ -13,14 +13,14 @@ export async function GET(_request: NextRequest, ctx: Ctx) {
 export async function PUT(request: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
   const body = await request.json();
-  const employee = updateEmployee(Number(id), body);
+  const employee = await updateEmployee(Number(id), body);
   if (!employee) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json(employee);
 }
 
 export async function DELETE(_request: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
-  const deleted = deleteEmployee(Number(id));
+  const deleted = await deleteEmployee(Number(id));
   if (!deleted) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json({ success: true });
 }

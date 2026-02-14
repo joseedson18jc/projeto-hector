@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllEmployees, createEmployee } from '@/lib/queries';
 
-export function GET() {
-  return NextResponse.json(getAllEmployees());
+export async function GET() {
+  return NextResponse.json(await getAllEmployees());
 }
 
 export async function POST(request: NextRequest) {
@@ -13,6 +13,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  const employee = createEmployee({ name, initials, role, department, manager_code, avatar_gradient });
+  const employee = await createEmployee({ name, initials, role, department, manager_code, avatar_gradient });
   return NextResponse.json(employee, { status: 201 });
 }
