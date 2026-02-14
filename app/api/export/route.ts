@@ -9,7 +9,7 @@ import type { DashboardFilters } from '@/lib/types';
 
 function statusLabel(status: string | null): string {
   switch (status) {
-    case 'concluido': return 'Concluido';
+    case 'concluido': return 'Concluida';
     case 'em_andamento': return 'Em Andamento';
     case 'nao_iniciado': return 'Nao Iniciado';
     default: return 'Sem Avaliacao';
@@ -23,6 +23,9 @@ export async function GET(request: NextRequest) {
   if (searchParams.get('bp')) filters.business_partner = searchParams.get('bp')!;
   if (searchParams.get('diretoria')) filters.diretoria = searchParams.get('diretoria')!;
   if (searchParams.get('elegibilidade')) filters.elegibilidade = searchParams.get('elegibilidade')!;
+  if (searchParams.get('categoria')) filters.categoria = searchParams.get('categoria')!;
+  if (searchParams.get('genero')) filters.genero = searchParams.get('genero')!;
+  if (searchParams.get('gs')) filters.gs = searchParams.get('gs')!;
 
   const hasFilters = Object.values(filters).some(Boolean);
 
@@ -44,6 +47,9 @@ export async function GET(request: NextRequest) {
   if (filters.business_partner) activeFilters.push(`Business Partner: ${filters.business_partner}`);
   if (filters.diretoria) activeFilters.push(`Diretoria: ${filters.diretoria}`);
   if (filters.elegibilidade) activeFilters.push(`Elegibilidade: ${filters.elegibilidade}`);
+  if (filters.categoria) activeFilters.push(`Categoria: ${filters.categoria}`);
+  if (filters.genero) activeFilters.push(`Genero: ${filters.genero}`);
+  if (filters.gs) activeFilters.push(`GS: ${filters.gs}`);
   data.push([activeFilters.length > 0 ? `Filtros: ${activeFilters.join(' | ')}` : 'Filtros: Nenhum (Todos)']);
   data.push([]);
 
@@ -51,7 +57,7 @@ export async function GET(request: NextRequest) {
   data.push(['Taxa de Conclusao (%)', stats.completion_rate]);
   data.push([]);
 
-  // Rows 7-9: KPI
+  // KPI
   data.push(['Status', 'Quantidade']);
   data.push(['Concluido', stats.completed]);
   data.push(['Em Andamento', stats.in_progress]);
@@ -67,16 +73,35 @@ export async function GET(request: NextRequest) {
   }
   data.push([]);
 
-  // Employee list
+  // Employee list — full template columns
   data.push(['Lista de Funcionarios']);
-  data.push(['Nome', 'Cargo', 'Area', 'Gestor', 'Status']);
+  data.push([
+    'ID', 'Nome', 'Admissao', 'Gestor Imediato', 'Cargo', 'Empresa',
+    'Grade', 'Categoria', 'Resumo Cat', 'Genero', 'Area',
+    'Business Partner', 'Diretoria', 'Super SR', 'Super', 'GS',
+    'Elegibilidade', 'Status Avaliacao', 'Nota Avaliacao',
+  ]);
   for (const emp of employees) {
     data.push([
+      emp.employee_code || emp.manager_code,
       emp.name,
-      emp.role,
-      emp.department,
+      emp.admissao,
       emp.gestor_nome || emp.manager_code,
+      emp.role,
+      emp.empresa,
+      emp.grade,
+      emp.categoria,
+      emp.resumo_cat,
+      emp.genero,
+      emp.department,
+      emp.business_partner,
+      emp.diretoria,
+      emp.super_sr,
+      emp.super_val,
+      emp.gs,
+      emp.elegibilidade,
       statusLabel(emp.status),
+      emp.status === 'concluido' && emp.category ? emp.category : '',
     ]);
   }
 
@@ -84,11 +109,10 @@ export async function GET(request: NextRequest) {
 
   // Set column widths
   ws['!cols'] = [
-    { wch: 40 }, // A
-    { wch: 20 }, // B
-    { wch: 20 }, // C
-    { wch: 20 }, // D
-    { wch: 15 }, // E
+    { wch: 10 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 30 },
+    { wch: 15 }, { wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 8 },
+    { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+    { wch: 10 }, { wch: 14 }, { wch: 18 }, { wch: 15 },
   ];
 
   const wb = XLSX.utils.book_new();

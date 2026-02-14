@@ -44,6 +44,18 @@ function buildFilterClause(filters?: DashboardFilters): { where: string; args: I
     conditions.push('e.elegibilidade = ?');
     args.push(filters.elegibilidade);
   }
+  if (filters.categoria) {
+    conditions.push('e.categoria = ?');
+    args.push(filters.categoria);
+  }
+  if (filters.genero) {
+    conditions.push('e.genero = ?');
+    args.push(filters.genero);
+  }
+  if (filters.gs) {
+    conditions.push('e.gs = ?');
+    args.push(filters.gs);
+  }
 
   if (conditions.length === 0) return { where: '', args: [] };
   return { where: ' WHERE ' + conditions.join(' AND '), args };
@@ -148,17 +160,23 @@ export async function getCategoryDistribution(filters?: DashboardFilters): Promi
 
 export async function getFilterOptions(): Promise<FilterOptions> {
   const db = await getDb();
-  const [empresas, bps, dirs, elegs] = await Promise.all([
+  const [empresas, bps, dirs, elegs, cats, gens, gss] = await Promise.all([
     db.execute("SELECT DISTINCT empresa FROM employees WHERE empresa != '' ORDER BY empresa"),
     db.execute("SELECT DISTINCT business_partner FROM employees WHERE business_partner != '' ORDER BY business_partner"),
     db.execute("SELECT DISTINCT diretoria FROM employees WHERE diretoria != '' ORDER BY diretoria"),
     db.execute("SELECT DISTINCT elegibilidade FROM employees WHERE elegibilidade != '' ORDER BY elegibilidade"),
+    db.execute("SELECT DISTINCT categoria FROM employees WHERE categoria != '' ORDER BY categoria"),
+    db.execute("SELECT DISTINCT genero FROM employees WHERE genero != '' ORDER BY genero"),
+    db.execute("SELECT DISTINCT gs FROM employees WHERE gs != '' ORDER BY gs"),
   ]);
   return {
     empresas: empresas.rows.map((r) => r.empresa as string),
     business_partners: bps.rows.map((r) => r.business_partner as string),
     diretorias: dirs.rows.map((r) => r.diretoria as string),
     elegibilidades: elegs.rows.map((r) => r.elegibilidade as string),
+    categorias: cats.rows.map((r) => r.categoria as string),
+    generos: gens.rows.map((r) => r.genero as string),
+    gs_list: gss.rows.map((r) => r.gs as string),
   };
 }
 
@@ -189,8 +207,8 @@ export async function getAllEmployees(): Promise<Employee[]> {
 export async function createEmployee(data: Omit<Employee, 'id' | 'created_at'>): Promise<Employee> {
   const db = await getDb();
   const result = await db.execute({
-    sql: `INSERT INTO employees (name, initials, role, department, manager_code, avatar_gradient, empresa, business_partner, diretoria, elegibilidade, gestor_nome)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO employees (name, initials, role, department, manager_code, avatar_gradient, empresa, business_partner, diretoria, elegibilidade, gestor_nome, employee_code, admissao, grade, categoria, resumo_cat, genero, super_sr, super_val, gs)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       data.name,
       data.initials,
@@ -203,6 +221,15 @@ export async function createEmployee(data: Omit<Employee, 'id' | 'created_at'>):
       data.diretoria || '',
       data.elegibilidade || '',
       data.gestor_nome || '',
+      data.employee_code || '',
+      data.admissao || '',
+      data.grade || '',
+      data.categoria || '',
+      data.resumo_cat || '',
+      data.genero || '',
+      data.super_sr || '',
+      data.super_val || '',
+      data.gs || '',
     ],
   });
   return (await getEmployee(Number(result.lastInsertRowid)))!;

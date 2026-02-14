@@ -11,6 +11,15 @@ export interface Employee {
   diretoria: string;
   elegibilidade: string;
   gestor_nome: string;
+  employee_code: string;
+  admissao: string;
+  grade: string;
+  categoria: string;
+  resumo_cat: string;
+  genero: string;
+  super_sr: string;
+  super_val: string;
+  gs: string;
   created_at: string;
 }
 
@@ -56,6 +65,9 @@ export interface DashboardFilters {
   business_partner?: string;
   diretoria?: string;
   elegibilidade?: string;
+  categoria?: string;
+  genero?: string;
+  gs?: string;
 }
 
 export interface FilterOptions {
@@ -63,6 +75,9 @@ export interface FilterOptions {
   business_partners: string[];
   diretorias: string[];
   elegibilidades: string[];
+  categorias: string[];
+  generos: string[];
+  gs_list: string[];
 }
 
 export type ProgressGroupBy = 'area' | 'empresa';

@@ -19,6 +19,15 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
+function excelSerialToDate(serial: number | string): string {
+  const n = Number(serial);
+  if (isNaN(n) || n < 1) return String(serial);
+  // Excel serial date: days since 1899-12-30
+  const epoch = new Date(1899, 11, 30);
+  const date = new Date(epoch.getTime() + n * 86400000);
+  return date.toISOString().split('T')[0];
+}
+
 function normalizeStatus(raw: string | undefined): Evaluation['status'] | null {
   if (!raw) return null;
   const s = raw.toLowerCase().trim();
@@ -29,6 +38,7 @@ function normalizeStatus(raw: string | undefined): Evaluation['status'] | null {
 }
 
 function findCol(headers: string[], ...candidates: string[]): number {
+  // Exact match first
   for (const c of candidates) {
     const idx = headers.findIndex(
       (h) => h.toLowerCase().trim() === c.toLowerCase()
@@ -45,6 +55,11 @@ function findCol(headers: string[], ...candidates: string[]): number {
   return -1;
 }
 
+function str(row: (string | number | null | undefined)[], col: number): string {
+  if (col === -1) return '';
+  return String(row[col] ?? '').trim();
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -57,17 +72,17 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const raw: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    const raw: (string | number)[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
     if (raw.length < 2) {
       return NextResponse.json({ error: 'Planilha vazia ou sem dados' }, { status: 400 });
     }
 
-    // Find header row (first row with "nome" or "name")
+    // Find header row (first row with "nome" or "name" or "id")
     let headerIdx = 0;
     for (let i = 0; i < Math.min(raw.length, 10); i++) {
       const row = raw[i].map((c) => String(c).toLowerCase().trim());
-      if (row.some((h) => h === 'nome' || h === 'name')) {
+      if (row.some((h) => h === 'nome' || h === 'name' || h === 'id')) {
         headerIdx = i;
         break;
       }
@@ -76,23 +91,30 @@ export async function POST(request: NextRequest) {
     const headers = raw[headerIdx].map((h) => String(h).trim());
     const dataRows = raw.slice(headerIdx + 1);
 
+    // Map all template columns
+    const colId = findCol(headers, 'ID');
     const colName = findCol(headers, 'Nome', 'Name');
+    const colAdmissao = findCol(headers, 'Admissao');
+    const colGestor = findCol(headers, 'Gestor Imediato', 'Gestor', 'Manager');
     const colRole = findCol(headers, 'Cargo', 'Role', 'Funcao');
-    const colDept = findCol(headers, 'Area', 'Departamento', 'Department');
-    const colManager = findCol(headers, 'Gestor', 'Manager', 'Cod. Gestor', 'Codigo Gestor');
     const colEmpresa = findCol(headers, 'Empresa', 'Company');
+    const colGrade = findCol(headers, 'Grade');
+    const colCategoria = findCol(headers, 'Catergoria', 'Categoria', 'Category');
+    const colResumoCat = findCol(headers, 'Resumo Cat', 'Resumo');
+    const colGenero = findCol(headers, 'Genero', 'Gender');
+    const colDept = findCol(headers, 'Area', 'Departamento', 'Department');
     const colBP = findCol(headers, 'Business Partner', 'BP');
     const colDir = findCol(headers, 'Diretoria');
+    const colSuperSr = findCol(headers, 'Super SR');
+    const colSuper = findCol(headers, 'Super');
+    const colGS = findCol(headers, 'GS');
     const colEleg = findCol(headers, 'Elegibilidade');
-    const colStatus = findCol(headers, 'Status');
-    const colCategory = findCol(headers, 'Categoria', 'Category', 'Resumo');
-    const colScore = findCol(headers, 'Nota', 'Score');
-    const colDate = findCol(headers, 'Data', 'Date', 'Data Avaliacao');
-    const colGestorNome = findCol(headers, 'Gestor Nome', 'Nome Gestor', 'Gestor');
+    const colStatus = findCol(headers, 'Status Avaliacao', 'Status');
+    const colScore = findCol(headers, 'Nota Avaliacao', 'Nota', 'Score');
 
     if (colName === -1) {
       return NextResponse.json(
-        { error: 'Coluna "Nome" nao encontrada na planilha' },
+        { error: 'Coluna "NOME" nao encontrada na planilha' },
         { status: 400 }
       );
     }
@@ -102,49 +124,53 @@ export async function POST(request: NextRequest) {
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
-      const name = String(row[colName] || '').trim();
+      const name = str(row, colName);
       if (!name) continue;
 
       try {
-        const role = colRole !== -1 ? String(row[colRole] || '').trim() : '';
-        const department = colDept !== -1 ? String(row[colDept] || '').trim() : '';
-        const managerCode = colManager !== -1 ? String(row[colManager] || '').trim() : '';
-        const empresa = colEmpresa !== -1 ? String(row[colEmpresa] || '').trim() : '';
-        const bp = colBP !== -1 ? String(row[colBP] || '').trim() : '';
-        const dir = colDir !== -1 ? String(row[colDir] || '').trim() : '';
-        const eleg = colEleg !== -1 ? String(row[colEleg] || '').trim() : '';
-        const gestorNome = colGestorNome !== -1 ? String(row[colGestorNome] || '').trim() : '';
+        const admissaoRaw = colAdmissao !== -1 ? row[colAdmissao] : '';
+        const admissao = typeof admissaoRaw === 'number'
+          ? excelSerialToDate(admissaoRaw)
+          : String(admissaoRaw || '').trim();
 
         const employee = await createEmployee({
           name,
           initials: getInitials(name),
-          role: role || 'N/A',
-          department: department || 'N/A',
-          manager_code: managerCode || '',
+          role: str(row, colRole) || 'N/A',
+          department: str(row, colDept) || 'N/A',
+          manager_code: str(row, colId),
           avatar_gradient: GRADIENTS[imported % GRADIENTS.length],
-          empresa,
-          business_partner: bp,
-          diretoria: dir,
-          elegibilidade: eleg,
-          gestor_nome: gestorNome,
+          empresa: str(row, colEmpresa),
+          business_partner: str(row, colBP),
+          diretoria: str(row, colDir),
+          elegibilidade: str(row, colEleg),
+          gestor_nome: str(row, colGestor),
+          employee_code: str(row, colId),
+          admissao,
+          grade: str(row, colGrade),
+          categoria: str(row, colCategoria),
+          resumo_cat: str(row, colResumoCat),
+          genero: str(row, colGenero),
+          super_sr: str(row, colSuperSr),
+          super_val: str(row, colSuper),
+          gs: str(row, colGS),
         });
 
         // Create evaluation if status is provided
-        const statusRaw = colStatus !== -1 ? String(row[colStatus] || '').trim() : '';
+        const statusRaw = str(row, colStatus);
         const status = normalizeStatus(statusRaw);
         if (status) {
-          const category = colCategory !== -1 ? String(row[colCategory] || '').trim() : '';
+          const category = str(row, colResumoCat) || str(row, colCategoria) || 'Geral';
           const scoreRaw = colScore !== -1 ? row[colScore] : null;
           const score = scoreRaw !== null && scoreRaw !== '' ? Number(scoreRaw) : null;
-          const dateRaw = colDate !== -1 ? String(row[colDate] || '').trim() : '';
 
           await createEvaluation({
             employee_id: employee.id,
             status,
-            category: category || 'Geral',
+            category,
             score: score !== null && !isNaN(score) ? score : null,
             notes: null,
-            evaluated_at: dateRaw || null,
+            evaluated_at: null,
           });
         }
 

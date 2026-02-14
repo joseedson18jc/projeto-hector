@@ -30,6 +30,9 @@ export default async function Dashboard({
   if (params.bp) filters.business_partner = params.bp;
   if (params.diretoria) filters.diretoria = params.diretoria;
   if (params.elegibilidade) filters.elegibilidade = params.elegibilidade;
+  if (params.categoria) filters.categoria = params.categoria;
+  if (params.genero) filters.genero = params.genero;
+  if (params.gs) filters.gs = params.gs;
   const hasFilters = Object.values(filters).some(Boolean);
   const activeFilters = hasFilters ? filters : undefined;
 

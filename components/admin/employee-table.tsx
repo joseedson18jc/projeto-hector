@@ -32,6 +32,15 @@ type FormData = {
   diretoria: string;
   elegibilidade: string;
   gestor_nome: string;
+  employee_code: string;
+  admissao: string;
+  grade: string;
+  categoria: string;
+  resumo_cat: string;
+  genero: string;
+  super_sr: string;
+  super_val: string;
+  gs: string;
 };
 
 const emptyForm: FormData = {
@@ -46,6 +55,15 @@ const emptyForm: FormData = {
   diretoria: '',
   elegibilidade: '',
   gestor_nome: '',
+  employee_code: '',
+  admissao: '',
+  grade: '',
+  categoria: '',
+  resumo_cat: '',
+  genero: '',
+  super_sr: '',
+  super_val: '',
+  gs: '',
 };
 
 export function EmployeeTable({ employees }: Props) {
@@ -76,6 +94,15 @@ export function EmployeeTable({ employees }: Props) {
       diretoria: emp.diretoria || '',
       elegibilidade: emp.elegibilidade || '',
       gestor_nome: emp.gestor_nome || '',
+      employee_code: emp.employee_code || '',
+      admissao: emp.admissao || '',
+      grade: emp.grade || '',
+      categoria: emp.categoria || '',
+      resumo_cat: emp.resumo_cat || '',
+      genero: emp.genero || '',
+      super_sr: emp.super_sr || '',
+      super_val: emp.super_val || '',
+      gs: emp.gs || '',
     });
     setShowForm(true);
   }
@@ -143,7 +170,8 @@ export function EmployeeTable({ employees }: Props) {
               <th>Departamento</th>
               <th>Cód. Gestor</th>
               <th>Empresa</th>
-              <th>Diretoria</th>
+              <th>Categoria</th>
+              <th>Elegibilidade</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -167,7 +195,8 @@ export function EmployeeTable({ employees }: Props) {
                 <td>{emp.department}</td>
                 <td>{emp.manager_code}</td>
                 <td>{emp.empresa}</td>
-                <td>{emp.diretoria}</td>
+                <td>{emp.categoria}</td>
+                <td>{emp.elegibilidade}</td>
                 <td>
                   <div className="action-btns">
                     <Button variant="ghost" onClick={() => openEdit(emp)}>
@@ -202,6 +231,15 @@ export function EmployeeTable({ employees }: Props) {
             <Input label="Business Partner" id="emp-bp" value={form.business_partner} onChange={(e) => set('business_partner', e.target.value)} />
             <Input label="Diretoria" id="emp-dir" value={form.diretoria} onChange={(e) => set('diretoria', e.target.value)} />
             <Input label="Elegibilidade" id="emp-eleg" value={form.elegibilidade} onChange={(e) => set('elegibilidade', e.target.value)} />
+            <Input label="Codigo Funcionario" id="emp-code" value={form.employee_code} onChange={(e) => set('employee_code', e.target.value)} />
+            <Input label="Admissao" id="emp-admissao" value={form.admissao} onChange={(e) => set('admissao', e.target.value)} placeholder="AAAA-MM-DD" />
+            <Input label="Grade" id="emp-grade" value={form.grade} onChange={(e) => set('grade', e.target.value)} />
+            <Input label="Categoria" id="emp-cat" value={form.categoria} onChange={(e) => set('categoria', e.target.value)} />
+            <Input label="Resumo Categoria" id="emp-resumo" value={form.resumo_cat} onChange={(e) => set('resumo_cat', e.target.value)} />
+            <Input label="Genero" id="emp-genero" value={form.genero} onChange={(e) => set('genero', e.target.value)} />
+            <Input label="Super SR" id="emp-supersr" value={form.super_sr} onChange={(e) => set('super_sr', e.target.value)} />
+            <Input label="Super" id="emp-super" value={form.super_val} onChange={(e) => set('super_val', e.target.value)} />
+            <Input label="GS" id="emp-gs" value={form.gs} onChange={(e) => set('gs', e.target.value)} />
             <div className="form-group">
               <label className="form-label">Cor do Avatar</label>
               <div className="gradient-picker">

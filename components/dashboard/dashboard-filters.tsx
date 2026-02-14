@@ -61,6 +61,9 @@ export function DashboardFilters({ filterOptions }: DashboardFiltersProps) {
     { key: 'diretoria', label: 'Diretoria', options: filterOptions.diretorias },
     { key: 'empresa', label: 'Empresa', options: filterOptions.empresas },
     { key: 'elegibilidade', label: 'Elegibilidade', options: filterOptions.elegibilidades },
+    { key: 'categoria', label: 'Categoria', options: filterOptions.categorias },
+    { key: 'genero', label: 'Genero', options: filterOptions.generos },
+    { key: 'gs', label: 'GS', options: filterOptions.gs_list },
   ];
 
   return (

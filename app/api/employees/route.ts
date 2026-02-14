@@ -10,6 +10,8 @@ export async function POST(request: NextRequest) {
   const {
     name, initials, role, department, manager_code, avatar_gradient,
     empresa, business_partner, diretoria, elegibilidade, gestor_nome,
+    employee_code, admissao, grade, categoria, resumo_cat, genero,
+    super_sr, super_val, gs,
   } = body;
 
   if (!name || !initials || !role || !department || !avatar_gradient) {
@@ -28,6 +30,15 @@ export async function POST(request: NextRequest) {
     diretoria: diretoria || '',
     elegibilidade: elegibilidade || '',
     gestor_nome: gestor_nome || '',
+    employee_code: employee_code || '',
+    admissao: admissao || '',
+    grade: grade || '',
+    categoria: categoria || '',
+    resumo_cat: resumo_cat || '',
+    genero: genero || '',
+    super_sr: super_sr || '',
+    super_val: super_val || '',
+    gs: gs || '',
   });
   return NextResponse.json(employee, { status: 201 });
 }
