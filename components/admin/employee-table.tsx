@@ -27,6 +27,11 @@ type FormData = {
   department: string;
   manager_code: string;
   avatar_gradient: string;
+  empresa: string;
+  business_partner: string;
+  diretoria: string;
+  elegibilidade: string;
+  gestor_nome: string;
 };
 
 const emptyForm: FormData = {
@@ -36,6 +41,11 @@ const emptyForm: FormData = {
   department: '',
   manager_code: '',
   avatar_gradient: GRADIENTS[0].value,
+  empresa: '',
+  business_partner: '',
+  diretoria: '',
+  elegibilidade: '',
+  gestor_nome: '',
 };
 
 export function EmployeeTable({ employees }: Props) {
@@ -61,6 +71,11 @@ export function EmployeeTable({ employees }: Props) {
       department: emp.department,
       manager_code: emp.manager_code,
       avatar_gradient: emp.avatar_gradient,
+      empresa: emp.empresa || '',
+      business_partner: emp.business_partner || '',
+      diretoria: emp.diretoria || '',
+      elegibilidade: emp.elegibilidade || '',
+      gestor_nome: emp.gestor_nome || '',
     });
     setShowForm(true);
   }
@@ -127,13 +142,15 @@ export function EmployeeTable({ employees }: Props) {
               <th>Cargo</th>
               <th>Departamento</th>
               <th>Cód. Gestor</th>
+              <th>Empresa</th>
+              <th>Diretoria</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody>
             {employees.length === 0 && (
               <tr>
-                <td colSpan={6} className="table-empty">
+                <td colSpan={8} className="table-empty">
                   Nenhum funcionário cadastrado.
                 </td>
               </tr>
@@ -149,6 +166,8 @@ export function EmployeeTable({ employees }: Props) {
                 <td>{emp.role}</td>
                 <td>{emp.department}</td>
                 <td>{emp.manager_code}</td>
+                <td>{emp.empresa}</td>
+                <td>{emp.diretoria}</td>
                 <td>
                   <div className="action-btns">
                     <Button variant="ghost" onClick={() => openEdit(emp)}>
@@ -177,7 +196,12 @@ export function EmployeeTable({ employees }: Props) {
             <Input label="Iniciais" id="emp-initials" value={form.initials} onChange={(e) => set('initials', e.target.value.toUpperCase())} maxLength={3} required />
             <Input label="Cargo" id="emp-role" value={form.role} onChange={(e) => set('role', e.target.value)} required />
             <Input label="Departamento" id="emp-dept" value={form.department} onChange={(e) => set('department', e.target.value)} required />
-            <Input label="Código Gestor" id="emp-mgr" value={form.manager_code} onChange={(e) => set('manager_code', e.target.value)} required />
+            <Input label="Código Gestor" id="emp-mgr" value={form.manager_code} onChange={(e) => set('manager_code', e.target.value)} />
+            <Input label="Nome do Gestor" id="emp-gestor" value={form.gestor_nome} onChange={(e) => set('gestor_nome', e.target.value)} />
+            <Input label="Empresa" id="emp-empresa" value={form.empresa} onChange={(e) => set('empresa', e.target.value)} />
+            <Input label="Business Partner" id="emp-bp" value={form.business_partner} onChange={(e) => set('business_partner', e.target.value)} />
+            <Input label="Diretoria" id="emp-dir" value={form.diretoria} onChange={(e) => set('diretoria', e.target.value)} />
+            <Input label="Elegibilidade" id="emp-eleg" value={form.elegibilidade} onChange={(e) => set('elegibilidade', e.target.value)} />
             <div className="form-group">
               <label className="form-label">Cor do Avatar</label>
               <div className="gradient-picker">

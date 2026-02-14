@@ -16,6 +16,11 @@ export async function seed(client: Client): Promise<void> {
       department TEXT NOT NULL,
       manager_code TEXT NOT NULL,
       avatar_gradient TEXT NOT NULL,
+      empresa TEXT NOT NULL DEFAULT '',
+      business_partner TEXT NOT NULL DEFAULT '',
+      diretoria TEXT NOT NULL DEFAULT '',
+      elegibilidade TEXT NOT NULL DEFAULT '',
+      gestor_nome TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`,
     `CREATE TABLE IF NOT EXISTS evaluations (

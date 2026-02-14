@@ -7,8 +7,10 @@ import type {
   AreaProgress,
   CategoryDistribution,
   DashboardData,
+  DashboardFilters,
+  FilterOptions,
 } from './types';
-import type { Row } from '@libsql/client';
+import type { Row, InArgs } from '@libsql/client';
 
 function rowTo<T>(row: Row): T {
   return row as unknown as T;
@@ -18,19 +20,50 @@ function rowsTo<T>(rows: Row[]): T[] {
   return rows.map((r) => r as unknown as T);
 }
 
+// ── Filter helpers ──────────────────────────────────────────
+
+function buildFilterClause(filters?: DashboardFilters): { where: string; args: InArgs } {
+  if (!filters) return { where: '', args: [] };
+
+  const conditions: string[] = [];
+  const args: InArgs = [];
+
+  if (filters.empresa) {
+    conditions.push('e.empresa = ?');
+    args.push(filters.empresa);
+  }
+  if (filters.business_partner) {
+    conditions.push('e.business_partner = ?');
+    args.push(filters.business_partner);
+  }
+  if (filters.diretoria) {
+    conditions.push('e.diretoria = ?');
+    args.push(filters.diretoria);
+  }
+  if (filters.elegibilidade) {
+    conditions.push('e.elegibilidade = ?');
+    args.push(filters.elegibilidade);
+  }
+
+  if (conditions.length === 0) return { where: '', args: [] };
+  return { where: ' WHERE ' + conditions.join(' AND '), args };
+}
+
 // ── Dashboard aggregation ──────────────────────────────────────
 
-export async function getDashboardStats(): Promise<DashboardStats> {
+export async function getDashboardStats(filters?: DashboardFilters): Promise<DashboardStats> {
   const db = await getDb();
-  const { rows } = await db.execute(
-    `SELECT
+  const { where, args } = buildFilterClause(filters);
+  const { rows } = await db.execute({
+    sql: `SELECT
       COUNT(DISTINCT e.id) AS total,
       SUM(CASE WHEN ev.status = 'concluido' THEN 1 ELSE 0 END) AS completed,
       SUM(CASE WHEN ev.status = 'em_andamento' THEN 1 ELSE 0 END) AS in_progress,
       SUM(CASE WHEN ev.status = 'nao_iniciado' THEN 1 ELSE 0 END) AS not_started
     FROM employees e
-    LEFT JOIN evaluations ev ON ev.employee_id = e.id`
-  );
+    LEFT JOIN evaluations ev ON ev.employee_id = e.id${where}`,
+    args,
+  });
   const row = rowTo<{ total: number; completed: number; in_progress: number; not_started: number }>(rows[0]);
   return {
     ...row,
@@ -38,51 +71,103 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   };
 }
 
-export async function getAllEmployeesWithStatus(): Promise<EmployeeWithStatus[]> {
+export async function getAllEmployeesWithStatus(filters?: DashboardFilters): Promise<EmployeeWithStatus[]> {
   const db = await getDb();
-  const { rows } = await db.execute(
-    `SELECT e.*, ev.status, ev.category
+  const { where, args } = buildFilterClause(filters);
+  const { rows } = await db.execute({
+    sql: `SELECT e.*, ev.status, ev.category
      FROM employees e
-     LEFT JOIN evaluations ev ON ev.employee_id = e.id
-     ORDER BY e.id`
-  );
+     LEFT JOIN evaluations ev ON ev.employee_id = e.id${where}
+     ORDER BY e.id`,
+    args,
+  });
   return rowsTo<EmployeeWithStatus>(rows);
 }
 
-export async function getAreaProgress(): Promise<AreaProgress[]> {
+export async function getAreaProgress(filters?: DashboardFilters): Promise<AreaProgress[]> {
   const db = await getDb();
-  const { rows } = await db.execute(
-    `SELECT
+  const { where, args } = buildFilterClause(filters);
+  const { rows } = await db.execute({
+    sql: `SELECT
       e.department,
       SUM(CASE WHEN ev.status = 'concluido' THEN 1 ELSE 0 END) AS completed,
       SUM(CASE WHEN ev.status = 'em_andamento' THEN 1 ELSE 0 END) AS in_progress,
       SUM(CASE WHEN ev.status = 'nao_iniciado' THEN 1 ELSE 0 END) AS not_started,
       COUNT(*) AS total
     FROM employees e
-    LEFT JOIN evaluations ev ON ev.employee_id = e.id
+    LEFT JOIN evaluations ev ON ev.employee_id = e.id${where}
     GROUP BY e.department
-    ORDER BY e.department`
-  );
+    ORDER BY e.department`,
+    args,
+  });
   return rowsTo<AreaProgress>(rows);
 }
 
-export async function getCategoryDistribution(): Promise<CategoryDistribution[]> {
+export async function getCompanyProgress(filters?: DashboardFilters): Promise<AreaProgress[]> {
   const db = await getDb();
-  const { rows } = await db.execute(
-    `SELECT category, COUNT(*) AS count
-     FROM evaluations
-     GROUP BY category
-     ORDER BY category`
-  );
+  const { where, args } = buildFilterClause(filters);
+  const { rows } = await db.execute({
+    sql: `SELECT
+      e.empresa AS department,
+      SUM(CASE WHEN ev.status = 'concluido' THEN 1 ELSE 0 END) AS completed,
+      SUM(CASE WHEN ev.status = 'em_andamento' THEN 1 ELSE 0 END) AS in_progress,
+      SUM(CASE WHEN ev.status = 'nao_iniciado' THEN 1 ELSE 0 END) AS not_started,
+      COUNT(*) AS total
+    FROM employees e
+    LEFT JOIN evaluations ev ON ev.employee_id = e.id${where}
+    GROUP BY e.empresa
+    ORDER BY e.empresa`,
+    args,
+  });
+  return rowsTo<AreaProgress>(rows);
+}
+
+export async function getCategoryDistribution(filters?: DashboardFilters): Promise<CategoryDistribution[]> {
+  const db = await getDb();
+  if (!filters || Object.values(filters).every((v) => !v)) {
+    const { rows } = await db.execute(
+      `SELECT category, COUNT(*) AS count
+       FROM evaluations
+       GROUP BY category
+       ORDER BY category`
+    );
+    return rowsTo<CategoryDistribution>(rows);
+  }
+
+  const { where, args } = buildFilterClause(filters);
+  const { rows } = await db.execute({
+    sql: `SELECT ev.category, COUNT(*) AS count
+     FROM evaluations ev
+     JOIN employees e ON e.id = ev.employee_id${where}
+     GROUP BY ev.category
+     ORDER BY ev.category`,
+    args,
+  });
   return rowsTo<CategoryDistribution>(rows);
 }
 
-export async function getDashboardData(): Promise<DashboardData> {
+export async function getFilterOptions(): Promise<FilterOptions> {
+  const db = await getDb();
+  const [empresas, bps, dirs, elegs] = await Promise.all([
+    db.execute("SELECT DISTINCT empresa FROM employees WHERE empresa != '' ORDER BY empresa"),
+    db.execute("SELECT DISTINCT business_partner FROM employees WHERE business_partner != '' ORDER BY business_partner"),
+    db.execute("SELECT DISTINCT diretoria FROM employees WHERE diretoria != '' ORDER BY diretoria"),
+    db.execute("SELECT DISTINCT elegibilidade FROM employees WHERE elegibilidade != '' ORDER BY elegibilidade"),
+  ]);
+  return {
+    empresas: empresas.rows.map((r) => r.empresa as string),
+    business_partners: bps.rows.map((r) => r.business_partner as string),
+    diretorias: dirs.rows.map((r) => r.diretoria as string),
+    elegibilidades: elegs.rows.map((r) => r.elegibilidade as string),
+  };
+}
+
+export async function getDashboardData(filters?: DashboardFilters): Promise<DashboardData> {
   const [stats, employees, areas, categories] = await Promise.all([
-    getDashboardStats(),
-    getAllEmployeesWithStatus(),
-    getAreaProgress(),
-    getCategoryDistribution(),
+    getDashboardStats(filters),
+    getAllEmployeesWithStatus(filters),
+    getAreaProgress(filters),
+    getCategoryDistribution(filters),
   ]);
   return { stats, employees, areas, categories };
 }
@@ -104,9 +189,21 @@ export async function getAllEmployees(): Promise<Employee[]> {
 export async function createEmployee(data: Omit<Employee, 'id' | 'created_at'>): Promise<Employee> {
   const db = await getDb();
   const result = await db.execute({
-    sql: `INSERT INTO employees (name, initials, role, department, manager_code, avatar_gradient)
-          VALUES (?, ?, ?, ?, ?, ?)`,
-    args: [data.name, data.initials, data.role, data.department, data.manager_code, data.avatar_gradient],
+    sql: `INSERT INTO employees (name, initials, role, department, manager_code, avatar_gradient, empresa, business_partner, diretoria, elegibilidade, gestor_nome)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      data.name,
+      data.initials,
+      data.role,
+      data.department,
+      data.manager_code,
+      data.avatar_gradient,
+      data.empresa || '',
+      data.business_partner || '',
+      data.diretoria || '',
+      data.elegibilidade || '',
+      data.gestor_nome || '',
+    ],
   });
   return (await getEmployee(Number(result.lastInsertRowid)))!;
 }

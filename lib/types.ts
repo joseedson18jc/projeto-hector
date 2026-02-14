@@ -6,6 +6,11 @@ export interface Employee {
   department: string;
   manager_code: string;
   avatar_gradient: string;
+  empresa: string;
+  business_partner: string;
+  diretoria: string;
+  elegibilidade: string;
+  gestor_nome: string;
   created_at: string;
 }
 
@@ -45,6 +50,22 @@ export interface CategoryDistribution {
   category: string;
   count: number;
 }
+
+export interface DashboardFilters {
+  empresa?: string;
+  business_partner?: string;
+  diretoria?: string;
+  elegibilidade?: string;
+}
+
+export interface FilterOptions {
+  empresas: string[];
+  business_partners: string[];
+  diretorias: string[];
+  elegibilidades: string[];
+}
+
+export type ProgressGroupBy = 'area' | 'empresa';
 
 export interface DashboardData {
   stats: DashboardStats;

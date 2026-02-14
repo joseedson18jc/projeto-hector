@@ -19,7 +19,7 @@ export function PeopleList({ employees }: PeopleListProps) {
           <div className="person-info">
             <div className="name">{emp.name}</div>
             <div className="role">
-              {emp.role} · Área {emp.department} · Gestor {emp.manager_code}
+              {emp.role} · Área {emp.department} · Gestor {emp.gestor_nome || emp.manager_code}
             </div>
           </div>
           {emp.status && <StatusPill status={emp.status} />}

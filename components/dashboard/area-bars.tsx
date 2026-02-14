@@ -2,12 +2,13 @@ import type { AreaProgress } from '@/lib/types';
 
 interface AreaBarsProps {
   areas: AreaProgress[];
+  sectionLabel?: string;
 }
 
-export function AreaBars({ areas }: AreaBarsProps) {
+export function AreaBars({ areas, sectionLabel = 'Progresso por Área' }: AreaBarsProps) {
   return (
     <div className="area-bars">
-      <div className="section-label">Progresso por Área</div>
+      <div className="section-label">{sectionLabel}</div>
       {areas.map((area) => {
         const total = area.total || 1;
         return (
