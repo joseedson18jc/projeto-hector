@@ -1,0 +1,303 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #f8f9fb;
+  --card: #ffffff;
+  --text: #1a1a2e;
+  --muted: #8b8fa3;
+  --accent: #6c5ce7;
+  --green: #00b894;
+  --amber: #fdcb6e;
+  --red: #e17055;
+  --border: #eef0f5;
+  --shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.03);
+  --radius: 16px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 32px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 36px;
+}
+.header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.header .badge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-bottom: 4px;
+  letter-spacing: 0.3px;
+}
+
+/* Progress Ring Section */
+.top-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.ring-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.ring-card .label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 20px;
+}
+.ring-wrapper {
+  position: relative;
+  width: 160px;
+  height: 160px;
+}
+.ring-wrapper canvas { width: 160px !important; height: 160px !important; }
+.ring-center {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.ring-center .pct { font-size: 36px; font-weight: 700; color: var(--accent); }
+.ring-center .sub { font-size: 11px; color: var(--muted); font-weight: 500; }
+
+/* KPI row inside right card */
+.kpi-area {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.kpi {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.kpi::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px; height: 100%;
+  border-radius: 4px 0 0 4px;
+}
+.kpi.green::before { background: var(--green); }
+.kpi.amber::before { background: var(--amber); }
+.kpi.red::before   { background: var(--red); }
+
+.kpi .num { font-size: 32px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.kpi.green .num { color: var(--green); }
+.kpi.amber .num { color: #e8a817; }
+.kpi.red .num   { color: var(--red); }
+.kpi .kpi-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+/* Progress bars per area */
+.area-bars { display: flex; flex-direction: column; gap: 12px; }
+.area-bars .section-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bar-row .area-name {
+  width: 90px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: right;
+  flex-shrink: 0;
+}
+.stacked-bar {
+  flex: 1;
+  height: 28px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  background: var(--border);
+}
+.stacked-bar .seg {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  transition: width .6s ease;
+  min-width: 0;
+}
+.stacked-bar .seg.g { background: var(--green); }
+.stacked-bar .seg.a { background: var(--amber); }
+.stacked-bar .seg.r { background: var(--red); }
+
+/* Bottom grid */
+.bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+/* People list */
+.people-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px 32px;
+}
+.people-card .section-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.people-card .section-title .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 14px;
+}
+.person:last-child { border-bottom: none; }
+
+.avatar {
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  flex-shrink: 0;
+}
+.person-info { flex: 1; }
+.person-info .name { font-size: 14px; font-weight: 600; }
+.person-info .role { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.status-pill.done   { background: #e6f9f1; color: #00896a; }
+.status-pill.wip    { background: #fef7e0; color: #b8860b; }
+.status-pill.notyet { background: #fdeae6; color: #c0392b; }
+
+/* Chart card */
+.chart-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+}
+.chart-card .section-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chart-card .section-title .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.chart-card .chart-wrapper { flex: 1; position: relative; min-height: 250px; }
+
+/* Legend */
+.legend {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 16px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.legend-item .swatch {
+  width: 10px; height: 10px;
+  border-radius: 3px;
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 32px 0 16px;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.footer a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  body { padding: 16px; }
+  .top-grid { grid-template-columns: 1fr; }
+  .kpi-row { grid-template-columns: 1fr; }
+  .bottom-grid { grid-template-columns: 1fr; }
+}

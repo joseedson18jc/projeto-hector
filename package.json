@@ -1,0 +1,26 @@
+{
+  "name": "projeto-hector",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "chart.js": "^4.5.1",
+    "next": "14.2.35",
+    "react": "^18",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^18"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "typescript": "^5"
+  }
+}
