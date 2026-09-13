@@ -1,41 +1,27 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
-/.pnp
-.pnp.js
-.yarn/install-state.gz
 
-# testing
-/coverage
+# build output
+/dist/
 
-# next.js
-/.next/
-/out/
+# local environment
+.env*
 
-# production
-/build
-
-# misc
+# editor / OS
 .DS_Store
-*.pem
+*.tsbuildinfo
 
-# debug
+# python bytecode from the rebuild scripts
+__pycache__/
+*.py[cod]
+
+# logs
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+*.log
 
-# local env files
-.env*.local
-
-# vercel
+# deployment
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# database
-data/*.db
-data/*.db-wal
-data/*.db-shm
+# anatomy rebuild scratch space (see README "Rebuilding geometry")
+/work/
+/outputs/

@@ -1,0 +1,8 @@
+# Human Atlas — an interactive 3D anatomy explorer.
+User-agent: *
+Allow: /
+
+# The geometry chunks are large binaries with no indexable content.
+Disallow: /models/
+
+Sitemap: https://human-atlas-seven.vercel.app/sitemap.xml
