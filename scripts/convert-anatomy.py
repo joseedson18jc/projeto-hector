@@ -22,12 +22,23 @@ for element in metadata['elements']:
         elif line.startswith('v '):
             x,y,z=map(float,line.split()[1:4]);vertices.extend([x*.001,z*.001+.0781112,-y*.001-.1])
         elif line.startswith('vn '):
-            x,y,z=map(float,line.split()[1:4]);normals.extend([round(x*32767),round(z*32767),round(-y*32767)])
+            x,y,z=map(float,line.split()[1:4])
+            # Normalize before quantizing. OBJ does not guarantee unit-length
+            # vn records, and a longer one overflows the signed-short encoding
+            # (array('h') raises) or, once clamped, lights the surface wrongly.
+            # The viewer dequantizes these as n / 32767 and expects unit length.
+            length=math.sqrt(x*x+y*y+z*z) or 1.0
+            x,y,z=x/length,y/length,z/length
+            normals.extend([round(x*32767),round(z*32767),round(-y*32767)])
         elif line.startswith('f '):
             face=[int(s.split('/')[0])-1 for s in line.split()[1:]]
             for j in range(1,len(face)-1):indices.extend([face[0],face[j],face[j+1]])
+    # This converter indexes normals by the face's position index, which is
+    # only valid because BodyParts3D emits one vn per v in the same order.
     assert len(normals)==len(vertices),element['id']
-    assert len(vertices) and max(indices)<len(vertices)//3
+    assert len(vertices),f"{element['id']}: no vertices"
+    assert indices,f"{element['id']}: no faces"
+    assert max(indices)<len(vertices)//3,f"{element['id']}: face index out of range"
     if len(blob)>7_000_000:
         (out/f'anatomy-{chunk}.bin').write_bytes(blob);chunks.append({'url':f'/models/anatomy-{chunk}.bin','bytes':len(blob)});blob=bytearray();chunk+=1
     def append(values,fmt):
