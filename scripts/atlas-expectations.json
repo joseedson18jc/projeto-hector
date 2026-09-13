@@ -1,0 +1,25 @@
+{
+  "atlas.json": {
+    "source": "BodyParts3D 4.0 (adult male), CC BY 4.0",
+    "parts": 2234,
+    "concepts": 3432,
+    "triangles": 2288268,
+    "systems": {
+      "arterial": 639,
+      "cardiac": 23,
+      "connective": 40,
+      "digestive": 97,
+      "endocrine": 4,
+      "integumentary": 5,
+      "lymphatic": 3,
+      "muscular": 402,
+      "nervous": 139,
+      "reproductive": 12,
+      "respiratory": 119,
+      "sensory": 45,
+      "skeletal": 296,
+      "urinary": 6,
+      "venous": 404
+    }
+  }
+}

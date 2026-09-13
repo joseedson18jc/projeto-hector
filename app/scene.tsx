@@ -6,7 +6,10 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import { createExplosionLayout } from "./explosion-layout";
 import { decodeModelResponse } from "./model-download";
 import { PointerTap } from "./pointer-tap";
-import { SYSTEMS, type Atlas, type SceneState } from "./anatomy";
+import { SYSTEMS, type Atlas, type SceneState, type SystemId } from "./anatomy";
+/** Concurrent geometry-chunk downloads. */
+const CHUNK_CONCURRENCY = 3;
+
 interface Props {
   atlas: Atlas;
   state: SceneState;
@@ -17,9 +20,13 @@ interface Props {
 export default function AnatomyScene({ atlas, state, onSelect, onProgress, onError }: Props) {
   const host = useRef<HTMLDivElement>(null),
     latest = useRef(state),
-    select = useRef(onSelect);
+    select = useRef(onSelect),
+    progress = useRef(onProgress),
+    failed = useRef(onError);
   latest.current = state;
   select.current = onSelect;
+  progress.current = onProgress;
+  failed.current = onError;
   useEffect(() => {
     const el = host.current!;
     let disposed = false,
@@ -41,10 +48,11 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
         powerPreference: "high-performance",
       });
     } catch {
-      onError(
+      failed.current(
         "This browser could not start the 3D viewer. Please try a browser with WebGL enabled.",
       );
-      return;
+      // Nothing was created, so there is nothing to tear down.
+      return () => {};
     }
     renderer.setPixelRatio(Math.min(devicePixelRatio, innerWidth < 768 ? 1.5 : 2));
     renderer.setClearColor("#f2f3f3");
@@ -64,7 +72,8 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
     controls.enableDamping = true;
     controls.dampingFactor = 0.085;
     controls.minDistance = 0.07;
-    controls.maxDistance = 40;
+    const BASE_MAX_DISTANCE = 40;
+    controls.maxDistance = BASE_MAX_DISTANCE;
     controls.maxPolarAngle = Math.PI * 0.96;
     controls.addEventListener("change", () => {
       dirty = true;
@@ -234,7 +243,7 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
       materials.push(m);
       return m;
     };
-    const mats = new Map(SYSTEMS.map((s) => [s.id, materialFor(s.id)]));
+    const mats = new Map<SystemId, T.Material>(SYSTEMS.map((s) => [s.id, materialFor(s.id)]));
     let loaded = 0;
     const loadChunk = async (ci: number) => {
       const chunk = atlas.chunks[ci],
@@ -242,7 +251,7 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
       const response = await fetch(compressed ? chunk.gzip! : chunk.url, { signal: abort.signal });
       const buffer = await decodeModelResponse(response, chunk.bytes, compressed);
       if (disposed) return;
-      const groups = new Map<string, T.BufferGeometry[]>();
+      const groups = new Map<SystemId, T.BufferGeometry[]>();
       atlas.parts.forEach((p, i) => {
         if (p.chunk !== ci) return;
         const g = new T.BufferGeometry();
@@ -274,22 +283,25 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
         const geometry = mergeGeometries(gs, false);
         if (!geometry) throw new Error("Could not assemble anatomy geometry.");
         geometries.push(geometry);
-        const mesh = new T.Mesh(geometry, mats.get(system as never));
+        const mesh = new T.Mesh(geometry, mats.get(system));
         mesh.frustumCulled = false;
         scene.add(mesh);
       });
       lastState = null;
       loaded++;
-      onProgress(Math.round((loaded / atlas.chunks.length) * 100));
+      progress.current(Math.round((loaded / atlas.chunks.length) * 100));
       dirty = true;
     };
-    (async () => {
+    void (async () => {
       try {
         let cursor = 0;
         await Promise.all(
-          Array.from({ length: 3 }, async () => {
+          // Three workers drain a shared cursor, capping concurrent chunk
+          // downloads. The await inside the loop is the limit, not a mistake.
+          Array.from({ length: CHUNK_CONCURRENCY }, async () => {
             while (cursor < atlas.chunks.length) {
               const i = cursor++;
+              // oxlint-disable-next-line no-await-in-loop
               await loadChunk(i);
             }
           }),
@@ -299,7 +311,8 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
           dirty = true;
         }
       } catch (e) {
-        if (!disposed) onError(e instanceof Error ? e.message : "Could not load the anatomy.");
+        if (!disposed)
+          failed.current(e instanceof Error ? e.message : "Could not load the anatomy.");
       }
     })();
     const fit = (view: string, extent = 0) => {
@@ -359,6 +372,8 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
       tap = new PointerTap(),
       worldBox = new T.Box3(),
       hitPoint = new T.Vector3();
+    // Reused between taps so picking allocates nothing per event.
+    const candidates: { index: number; mesh: T.Mesh; distance: number }[] = [];
     const down = (e: PointerEvent) => {
       hover.hidden = true;
       tap.down(e.pointerId, e.clientX, e.clientY, e.pointerType === "touch" ? 12 : 5);
@@ -396,21 +411,30 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
       const hasSolid = atlas.parts.some(
         (p, i) => p.system !== "integumentary" && data[i * 4 + 3] > 0.5,
       );
-      pickers.forEach((mesh, i) => {
-        if (
-          !mesh ||
-          data[i * 4 + 3] < 0.5 ||
-          (hasSolid && atlas.parts[i].system === "integumentary")
-        )
-          return;
+      // Gather the bounding boxes the ray enters, with the distance at which it
+      // enters each, then test triangles nearest-box-first. A box cannot
+      // contain a triangle closer than its own entry point, so once a hit is
+      // closer than the next box's entry distance no remaining box can beat it.
+      // Without that ordering every tap ran full per-triangle intersection
+      // against every visible mesh along the ray.
+      candidates.length = 0;
+      for (let i = 0; i < pickers.length; i++) {
+        const mesh = pickers[i];
+        if (!mesh || data[i * 4 + 3] < 0.5) continue;
+        if (hasSolid && atlas.parts[i].system === "integumentary") continue;
         worldBox.copy(bounds[i]).translate(mesh.position);
-        if (!raycaster.ray.intersectBox(worldBox, hitPoint)) return;
-        const hits = raycaster.intersectObject(mesh, false);
+        if (!raycaster.ray.intersectBox(worldBox, hitPoint)) continue;
+        candidates.push({ index: i, mesh, distance: raycaster.ray.origin.distanceTo(hitPoint) });
+      }
+      candidates.sort((a, b) => a.distance - b.distance);
+      for (const candidate of candidates) {
+        if (candidate.distance >= nearest) break;
+        const hits = raycaster.intersectObject(candidate.mesh, false);
         if (hits[0] && hits[0].distance < nearest) {
           nearest = hits[0].distance;
-          found = i;
+          found = candidate.index;
         }
-      });
+      }
       if (found < 0 && amount > 0.45)
         found = findTarget(
           e.clientX - rect.left,
@@ -574,7 +598,9 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
                 (2 * Math.tan(T.MathUtils.degToRad(camera.fov / 2)))) *
                 1.35,
             );
-            controls.maxDistance = Math.max(40, distance * 2);
+            // Isolating a small structure needs a closer camera than the
+            // assembled body; widen the ceiling only while isolated.
+            controls.maxDistance = Math.max(BASE_MAX_DISTANCE, distance * 2);
             controls.target.copy(center);
             camera.position
               .copy(center)
@@ -584,6 +610,9 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
           }
         } else if (lastIsolate) {
           camera.clearViewOffset();
+          // Leaving isolation must also drop the widened zoom ceiling, which
+          // otherwise persisted for the rest of the session.
+          controls.maxDistance = BASE_MAX_DISTANCE;
           fit(s.view, amount);
         }
         lastIsolate = isolateKey;
@@ -651,7 +680,7 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
     animate();
     const contextLost = (e: Event) => {
       e.preventDefault();
-      onError("The 3D session was paused by your device. Reload to continue.");
+      failed.current("The 3D session was paused by your device. Reload to continue.");
     };
     renderer.domElement.addEventListener("webglcontextlost", contextLost);
     return () => {

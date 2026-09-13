@@ -176,6 +176,27 @@ export const DEFAULT_VISIBLE: SystemId[] = [
   "reproductive",
   "connective",
 ];
+/**
+ * Layer presets offered above the system list. Each preset is defined once, so
+ * that the button's pressed state and the systems it applies cannot drift
+ * apart. `null` means "every system the loaded atlas actually contains".
+ */
+export const PRESETS: { label: string; systems: SystemId[] | null }[] = [
+  { label: "All", systems: null },
+  { label: "Skeleton", systems: ["skeletal"] },
+  {
+    label: "Organs",
+    systems: ["cardiac", "respiratory", "digestive", "urinary", "endocrine", "reproductive"],
+  },
+];
+
+/** True when exactly `systems` are visible, in any order. */
+export function isPresetActive(visible: SystemId[], systems: SystemId[]): boolean {
+  if (visible.length !== systems.length) return false;
+  const shown = new Set(visible);
+  return systems.every((id) => shown.has(id));
+}
+
 export const EXPLANATIONS: Record<string, string> = {
   heart:
     "A muscular pump in the chest. Its right side sends blood to the lungs; its left side sends blood through the systemic circulation.",
@@ -200,4 +221,72 @@ export function explanation(name: string, system: SystemId) {
   return (
     EXPLANATIONS[name.toLowerCase()] ?? SYSTEMS.find((s) => s.id === system)?.description ?? ""
   );
+}
+
+const SYSTEM_IDS: ReadonlySet<string> = new Set(SYSTEMS.map((s) => s.id));
+
+/** True when `value` is a known display system. */
+export function isSystemId(value: unknown): value is SystemId {
+  return typeof value === "string" && SYSTEM_IDS.has(value);
+}
+
+function fail(detail: string): never {
+  throw new Error(`The anatomy catalogue is not valid: ${detail}`);
+}
+
+function isFinitePair(value: unknown): value is [number[], number[]] {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    value.every(
+      (corner) =>
+        Array.isArray(corner) && corner.length === 3 && corner.every((n) => Number.isFinite(n)),
+    )
+  );
+}
+
+/**
+ * Validate a fetched manifest before the scene consumes it.
+ *
+ * The scene reads `parts` straight into typed-array views over the binary
+ * chunks, so a truncated or mismatched manifest otherwise surfaces as an
+ * opaque RangeError from deep inside geometry assembly. Checking the shape at
+ * the boundary turns that into a message the reader can act on.
+ */
+export function parseAtlas(value: unknown): Atlas {
+  if (!value || typeof value !== "object") fail("the file did not contain an object.");
+  const atlas = value as Partial<Atlas>;
+  if (!Array.isArray(atlas.parts) || atlas.parts.length === 0) fail("it lists no parts.");
+  if (!Array.isArray(atlas.concepts)) fail("it lists no named concepts.");
+  if (!Array.isArray(atlas.chunks) || atlas.chunks.length === 0) fail("it lists no geometry.");
+
+  for (const [index, chunk] of atlas.chunks.entries()) {
+    if (typeof chunk?.url !== "string" || !Number.isFinite(chunk?.bytes))
+      fail(`chunk ${index} has no url or byte length.`);
+  }
+  const ids = new Set<string>();
+  for (const part of atlas.parts) {
+    if (typeof part?.id !== "string" || !part.id) fail("a part has no identifier.");
+    if (ids.has(part.id)) fail(`part ${part.id} appears more than once.`);
+    ids.add(part.id);
+    if (typeof part.name !== "string" || !part.name.trim()) fail(`part ${part.id} has no name.`);
+    if (!isSystemId(part.system)) fail(`part ${part.id} names an unknown system.`);
+    if (!Number.isInteger(part.chunk) || !atlas.chunks[part.chunk])
+      fail(`part ${part.id} points at a missing geometry chunk.`);
+    for (const field of ["positions", "normals", "indices", "vertexCount", "indexCount"] as const) {
+      if (!Number.isInteger(part[field]) || part[field] < 0)
+        fail(`part ${part.id} has an invalid ${field}.`);
+    }
+    if (!isFinitePair(part.bounds)) fail(`part ${part.id} has invalid bounds.`);
+  }
+  for (const concept of atlas.concepts) {
+    if (typeof concept?.id !== "string" || typeof concept?.name !== "string")
+      fail("a concept has no identifier or name.");
+    if (!Array.isArray(concept.elements) || concept.elements.length === 0)
+      fail(`concept ${concept.id} references no parts.`);
+    for (const element of concept.elements) {
+      if (!ids.has(element)) fail(`concept ${concept.id} references missing part ${element}.`);
+    }
+  }
+  return atlas as Atlas;
 }

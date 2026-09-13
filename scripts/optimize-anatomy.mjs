@@ -1,8 +1,17 @@
 import fs from "node:fs";
 import { MeshoptSimplifier } from "meshoptimizer";
 await MeshoptSimplifier.ready;
-const name = process.argv[2] ?? "atlas.json",
-  prefix = name.includes("female") ? "female" : "body";
+// Usage: node scripts/optimize-anatomy.mjs [manifest.json] [--weld] [--prefix=body]
+//
+// --weld merges coincident vertices before simplification, averaging their
+// source normals. Some exporters duplicate vertices at every triangle
+// boundary, which defeats quadric simplification and leaves faceted surfaces.
+// This used to be selected by testing the manifest filename for "female",
+// which tied a property of the geometry to the name of a file.
+const args = process.argv.slice(2);
+const name = args.find((a) => !a.startsWith("--")) ?? "atlas.json";
+const weld = args.includes("--weld");
+const prefix = args.find((a) => a.startsWith("--prefix="))?.slice("--prefix=".length) ?? "body";
 const dir = new URL("../public/models/", import.meta.url),
   manifest = JSON.parse(fs.readFileSync(new URL(name, dir), "utf8"));
 const originals = manifest.chunks.map((c) => c.url.split("/").pop());
@@ -38,9 +47,7 @@ for (const p of manifest.parts) {
   let pos = new Float32Array(b.buffer, b.byteOffset + p.positions, p.vertexCount * 3),
     normal = new Int16Array(b.buffer, b.byteOffset + p.normals, p.vertexCount * 3),
     indices = new Uint32Array(b.buffer, b.byteOffset + p.indices, p.indexCount);
-  if (prefix === "female") {
-    // HRA exports often duplicate vertices at triangle boundaries. Weld coincident positions
-    // before simplification, averaging their source normals for smooth anatomical surfaces.
+  if (weld) {
     const map = new Map(),
       remap = new Uint32Array(p.vertexCount),
       wp = [],
@@ -104,7 +111,7 @@ manifest.optimized = {
 };
 fs.writeFileSync(new URL(name, dir), JSON.stringify(manifest));
 // Remove only converter outputs superseded by the optimized chunks.
-for (const name of originals) fs.unlinkSync(new URL(name, dir));
+for (const superseded of originals) fs.unlinkSync(new URL(superseded, dir));
 console.log(
   JSON.stringify({
     parts: manifest.parts.length,

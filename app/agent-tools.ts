@@ -1,4 +1,9 @@
 import type { Atlas, Concept } from "./anatomy";
+// Explicit extension: node --test strips types but does not rewrite import
+// specifiers, so scripts/agent-tools.test.mjs can only load this module if its
+// runtime imports resolve as written. Vite resolves the .ts extension too.
+import { AGENT_SEARCH_LIMIT, rankConcepts } from "./search.ts";
+
 type Tool = {
   name: string;
   description: string;
@@ -6,19 +11,25 @@ type Tool = {
   annotations: { readOnlyHint: boolean };
   execute: (input: unknown) => unknown;
 };
+
 function record(input: unknown): Record<string, unknown> {
   if (!input || typeof input !== "object" || Array.isArray(input))
     throw new Error("Expected an object.");
   return input as Record<string, unknown>;
 }
+
 export function atlasTools(atlas: Atlas, inspect: (concept: Concept) => void): Tool[] {
   return [
     {
       name: "find_anatomy",
-      description: "Find anatomical structures by name or source atlas identifier in this atlas.",
+      description:
+        "Find anatomical structures by name or source atlas identifier in this atlas. Results are ordered by relevance, most relevant first.",
       inputSchema: {
         type: "object",
-        properties: { query: { type: "string", minLength: 1 } },
+        properties: {
+          query: { type: "string", minLength: 1 },
+          limit: { type: "integer", minimum: 1, maximum: 200 },
+        },
         required: ["query"],
         additionalProperties: false,
       },
@@ -27,11 +38,17 @@ export function atlasTools(atlas: Atlas, inspect: (concept: Concept) => void): T
         const data = record(input);
         if (typeof data.query !== "string" || !data.query.trim())
           throw new Error("A nonempty query is required.");
-        const q = data.query.toLowerCase().trim();
-        return atlas.concepts
-          .filter((c) => c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q))
-          .slice(0, 30)
-          .map((c) => ({ id: c.id, name: c.name, pieces: c.elements.length }));
+        if (data.limit !== undefined && !Number.isInteger(data.limit))
+          throw new Error("The limit must be a whole number.");
+        const requested = typeof data.limit === "number" ? data.limit : AGENT_SEARCH_LIMIT;
+        const limit = Math.min(200, Math.max(1, requested));
+        // Shares the ranking used by the visible search panel, so that both
+        // surfaces return the same structure for the same query.
+        return rankConcepts(atlas.concepts, data.query, limit).map((c) => ({
+          id: c.id,
+          name: c.name,
+          pieces: c.elements.length,
+        }));
       },
     },
     {
@@ -55,7 +72,13 @@ export function atlasTools(atlas: Atlas, inspect: (concept: Concept) => void): T
     },
   ];
 }
-export function registerAtlasTools(atlas: Atlas, inspect: (concept: Concept) => void) {
+
+/**
+ * Register the optional WebMCP tools. Returns a cleanup function in every
+ * case, including when the browser exposes no model context, so that callers
+ * can use it directly as an effect teardown.
+ */
+export function registerAtlasTools(atlas: Atlas, inspect: (concept: Concept) => void): () => void {
   const context = (
     document as Document & {
       modelContext?: {
@@ -63,8 +86,8 @@ export function registerAtlasTools(atlas: Atlas, inspect: (concept: Concept) => 
       };
     }
   ).modelContext;
-  if (!context?.registerTool) return;
   const lifecycle = new AbortController();
+  if (!context?.registerTool) return () => lifecycle.abort();
   for (const tool of atlasTools(atlas, inspect)) {
     try {
       void Promise.resolve(context.registerTool(tool, { signal: lifecycle.signal })).catch(

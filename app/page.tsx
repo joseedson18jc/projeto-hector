@@ -28,11 +28,15 @@ import {
   ComboboxEmpty,
 } from "@/components/ui/combobox";
 import AnatomyScene from "./scene";
+import { SEARCH_LIMIT, rankConcepts, suggestedConcepts } from "./search";
 import {
   DEFAULT_VISIBLE,
   SYSTEMS,
   EXPLANATIONS,
   explanation,
+  isPresetActive,
+  parseAtlas,
+  PRESETS,
   type Atlas,
   type Concept,
   type SceneState,
@@ -72,65 +76,62 @@ export default function Home() {
         if (!r.ok) throw new Error("The anatomy catalogue could not be loaded.");
         return r.json();
       })
-      .then((data) => setAtlas(data as Atlas))
-      .catch((e) => {
-        if (e.name !== "AbortError") setError(e.message);
+      .then((data) => setAtlas(parseAtlas(data)))
+      .catch((e: unknown) => {
+        if (e instanceof Error && e.name === "AbortError") return;
+        setError(e instanceof Error ? e.message : "The anatomy catalogue could not be loaded.");
       });
     return () => abort.abort();
   }, []);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+      // A "/" typed into any editable host belongs to that field, including
+      // contentEditable elements and the search box itself.
+      const target = e.target;
       if (
-        e.key === "/" &&
-        !(e.target instanceof HTMLInputElement) &&
-        !(e.target instanceof HTMLTextAreaElement)
-      ) {
-        e.preventDefault();
-        setPanel("search");
-        setDetails(false);
-      }
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      )
+        return;
+      e.preventDefault();
+      setPanel("search");
+      setDetails(false);
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, []);
   const parts = useMemo(() => new Map(atlas?.parts.map((p) => [p.id, p])), [atlas]);
-  const counts = useMemo(
-    () =>
-      Object.fromEntries(
-        SYSTEMS.map((s) => [s.id, atlas?.parts.filter((p) => p.system === s.id).length ?? 0]),
-      ),
-    [atlas],
-  );
-  const activeSystems = SYSTEMS.filter((s) => counts[s.id] > 0);
+  // One pass over the parts rather than one full scan per system.
+  const counts = useMemo(() => {
+    const tally = new Map<SystemId, number>(SYSTEMS.map((s) => [s.id, 0]));
+    for (const p of atlas?.parts ?? []) tally.set(p.system, (tally.get(p.system) ?? 0) + 1);
+    return tally;
+  }, [atlas]);
+  const activeSystems = useMemo(() => SYSTEMS.filter((s) => (counts.get(s.id) ?? 0) > 0), [counts]);
   const selectedParts = state.selected.map((id) => parts.get(id)).filter((p) => !!p),
     selected = selectedParts[0],
     system = SYSTEMS.find((s) => s.id === selected?.system);
-  const visibleCount =
-    atlas?.parts.filter((p) =>
-      state.isolate
-        ? state.selected.includes(p.id)
-        : state.visible.includes(p.system) || state.selected.includes(p.id),
-    ).length ?? 0;
+  // Recomputed only when the inputs change, and with set lookups. This ran on
+  // every render, scanning all parts with two linear Array.includes scans, so
+  // dragging the explode slider cost O(parts x selected) work per frame.
+  const visibleCount = useMemo(() => {
+    if (!atlas) return 0;
+    const selectedIds = new Set(state.selected);
+    if (state.isolate) return atlas.parts.reduce((n, p) => n + (selectedIds.has(p.id) ? 1 : 0), 0);
+    const visibleSystems = new Set(state.visible);
+    return atlas.parts.reduce(
+      (n, p) => n + (visibleSystems.has(p.system) || selectedIds.has(p.id) ? 1 : 0),
+      0,
+    );
+  }, [atlas, state.isolate, state.selected, state.visible]);
   const results = useMemo(() => {
     if (!atlas) return [];
-    const term = query.toLowerCase().trim();
-    if (!term)
-      return [
-        "heart",
-        "brain",
-        "liver",
-        "stomach",
-        "spleen",
-        "pancreas",
-        "urinary bladder",
-        "trachea",
-      ]
-        .map((name) => atlas.concepts.find((c) => c.name.toLowerCase() === name))
-        .filter((x): x is Concept => !!x);
-    return atlas.concepts
-      .filter((c) => c.name.toLowerCase().includes(term) || c.id.toLowerCase().includes(term))
-      .sort((a, b) => a.name.length - b.name.length)
-      .slice(0, 80);
+    return query.trim()
+      ? rankConcepts(atlas.concepts, query, SEARCH_LIMIT)
+      : suggestedConcepts(atlas.concepts);
   }, [atlas, query]);
   const choose = (c: Concept) => {
     setChosen(c);
@@ -139,7 +140,7 @@ export default function Home() {
     setPanel(null);
   };
   useEffect(() => {
-    if (!atlas) return;
+    if (!atlas) return () => {};
     return registerAtlasTools(atlas, (c) => flushSync(() => choose(c)));
   }, [atlas]);
   const choosePart = (id: string) => {
@@ -176,10 +177,7 @@ export default function Home() {
           atlas={atlas}
           state={{ ...state, inspectorOpen: details && selectedParts.length > 0 }}
           onSelect={choosePart}
-          onProgress={(n) => {
-            setProgress(n);
-            if (n === 100) setError("");
-          }}
+          onProgress={setProgress}
           onError={setError}
         />
       )}
@@ -195,8 +193,8 @@ export default function Home() {
           </Badge>
         </h1>
         <div className="identity-meta">
-          {atlas ? atlas.parts.length.toLocaleString() : "2,234"} modeled pieces <span>·</span>{" "}
-          BodyParts3D
+          {atlas ? `${atlas.parts.length.toLocaleString()} modeled pieces` : "Loading anatomy"}{" "}
+          <span>·</span> BodyParts3D
         </div>
       </header>
       <nav className="top-actions" aria-label="Explorer panels">
@@ -242,55 +240,22 @@ export default function Home() {
           </Badge>
         </div>
         <div className="layer-presets">
-          <Button
-            variant="ghost"
-            aria-pressed={activeSystems.every((x) => state.visible.includes(x.id))}
-            onClick={() =>
-              setState((s) => ({
-                ...s,
-                selected: [],
-                isolate: false,
-                visible: activeSystems.map((x) => x.id),
-              }))
-            }
-          >
-            All
-          </Button>
-          <Button
-            variant="ghost"
-            aria-pressed={state.visible.length === 1 && state.visible[0] === "skeletal"}
-            onClick={() =>
-              setState((s) => ({ ...s, selected: [], isolate: false, visible: ["skeletal"] }))
-            }
-          >
-            Skeleton
-          </Button>
-          <Button
-            variant="ghost"
-            aria-pressed={
-              state.visible.length === 6 &&
-              ["cardiac", "respiratory", "digestive", "urinary", "endocrine", "reproductive"].every(
-                (id) => state.visible.includes(id as SystemId),
-              )
-            }
-            onClick={() =>
-              setState((s) => ({
-                ...s,
-                selected: [],
-                isolate: false,
-                visible: [
-                  "cardiac",
-                  "respiratory",
-                  "digestive",
-                  "urinary",
-                  "endocrine",
-                  "reproductive",
-                ],
-              }))
-            }
-          >
-            Organs
-          </Button>
+          {PRESETS.map((preset) => {
+            // "All" follows whatever the loaded atlas contains; the rest are fixed.
+            const systems = preset.systems ?? activeSystems.map((x) => x.id);
+            return (
+              <Button
+                key={preset.label}
+                variant="ghost"
+                aria-pressed={isPresetActive(state.visible, systems)}
+                onClick={() =>
+                  setState((s) => ({ ...s, selected: [], isolate: false, visible: systems }))
+                }
+              >
+                {preset.label}
+              </Button>
+            );
+          })}
         </div>
         <div className="system-list">
           {activeSystems.map((s) => (
@@ -308,7 +273,7 @@ export default function Home() {
               >
                 <span className="system-dot" style={{ background: s.color }} />
                 {s.name}
-                <span className="system-count">{counts[s.id]}</span>
+                <span className="system-count">{counts.get(s.id) ?? 0}</span>
               </Button>
               <Switch
                 checked={state.visible.includes(s.id)}
@@ -496,7 +461,10 @@ export default function Home() {
           <div>
             <strong>Preparing the anatomy</strong>
             <span>
-              {progress}% · Loading {atlas?.parts.length.toLocaleString() ?? "2,234"} pieces
+              {progress}%
+              {atlas
+                ? ` · Loading ${atlas.parts.length.toLocaleString()} pieces`
+                : " · Reading the catalogue"}
             </span>
             <div className="loading-track">
               <i style={{ width: `${progress}%` }} />
@@ -603,7 +571,11 @@ export default function Home() {
             <p>
               <strong>Male · BodyParts3D</strong>
               <br />
-              2,234 individual meshes and 3,432 named concepts from an adult male reference anatomy.
+              {atlas
+                ? `${atlas.parts.length.toLocaleString()} individual meshes and ${atlas.concepts.length.toLocaleString()} named concepts`
+                : "Individual meshes and named concepts"}{" "}
+              from an adult male reference anatomy
+              {atlas?.triangles ? `, ${atlas.triangles.toLocaleString()} triangles` : ""}.
             </p>
             <p>
               This reference does not contain every human structure or variation. Named concepts can
