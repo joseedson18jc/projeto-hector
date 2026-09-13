@@ -118,6 +118,13 @@ button:not([data-slot]):hover {
   height: 100%;
   touch-action: none;
 }
+.scene canvas:focus {
+  outline: none;
+}
+.scene canvas:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px #538d9a;
+}
 .vignette {
   position: absolute;
   inset: 0;
@@ -419,6 +426,14 @@ h1 .edition {
   justify-content: space-between;
   font-size: 11px;
   color: #73808c;
+}
+.studio-footer kbd {
+  font: inherit;
+  font-size: 11px;
+  padding: 0 4px;
+  border: 1px solid #18253620;
+  border-radius: 3px;
+  white-space: nowrap;
 }
 .studio-footer b {
   font-weight: 400;
@@ -1852,5 +1867,18 @@ h1 .edition {
     transform: none;
     max-width: none;
     margin: 0;
+  }
+}
+
+/* Readers who ask for reduced motion should not get interface animation. The
+   anatomy itself still animates on demand, because that is the content. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

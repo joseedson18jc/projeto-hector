@@ -4,15 +4,69 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <meta name="theme-color" content="#f3f4f4" />
+    <title>Human Atlas</title>
     <meta
       name="description"
       content="An interactive atlas of the human body. Explore named anatomical structures, reveal organ systems, and inspect individual parts in 3D."
     />
-    <title>Human Atlas</title>
+    <link rel="canonical" href="https://human-atlas-seven.vercel.app/" />
     <link rel="icon" href="/favicon.svg" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="color-scheme" content="light" />
+
+    <!-- Link previews. Without these, sharing the viewer shows a bare URL. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Human Atlas" />
+    <meta property="og:title" content="Human Atlas — interactive 3D anatomy" />
+    <meta
+      property="og:description"
+      content="Take an adult reference anatomy apart into 2,234 individually selectable meshes, explore 15 anatomical systems, and search 3,432 named concepts."
+    />
+    <meta property="og:url" content="https://human-atlas-seven.vercel.app/" />
+    <meta property="og:image" content="https://human-atlas-seven.vercel.app/social-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="A reference human anatomy rendered in a studio, with its organ systems listed alongside."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Human Atlas — interactive 3D anatomy" />
+    <meta
+      name="twitter:description"
+      content="Take an adult reference anatomy apart into 2,234 individually selectable meshes, explore 15 anatomical systems, and search 3,432 named concepts."
+    />
+    <meta name="twitter:image" content="https://human-atlas-seven.vercel.app/social-card.png" />
+
+    <!-- The viewer fetches this on mount; starting it with the document saves a
+         round trip on the critical path. -->
+    <link rel="preload" href="/models/atlas.json" as="fetch" crossorigin="anonymous" />
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div
+        style="
+          max-width: 34rem;
+          margin: 18vh auto;
+          padding: 0 1.5rem;
+          font-family: &quot;Helvetica Neue&quot;, Arial, sans-serif;
+          color: #20242b;
+          line-height: 1.5;
+        "
+      >
+        <h1 style="font-size: 1.5rem">Human Atlas</h1>
+        <p>
+          This is an interactive 3D anatomy explorer, and it needs JavaScript and WebGL to render
+          the body. Please enable JavaScript in your browser.
+        </p>
+        <p>
+          The anatomy data is
+          <a href="https://lifesciencedb.jp/bp3d/">BodyParts3D 4.0</a>, an adult male reference
+          anatomy licensed CC BY 4.0.
+        </p>
+      </div>
+    </noscript>
     <script type="module" src="/main.tsx"></script>
   </body>
 </html>

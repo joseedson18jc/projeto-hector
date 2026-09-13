@@ -442,7 +442,8 @@ export default function Home() {
       <footer className="studio-footer">
         <span>
           {state.explode > 0.8 ? "Drag to pan" : "Drag to orbit"} <b>·</b> Pinch to zoom <b>·</b>{" "}
-          Tap to inspect
+          Tap to inspect <b>·</b> <kbd>Tab</kbd> to the body, then arrows, <kbd>+</kbd>/<kbd>−</kbd>{" "}
+          and <kbd>Enter</kbd>
         </span>
         <Button
           variant="ghost"

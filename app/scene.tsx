@@ -60,9 +60,14 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
     renderer.toneMapping = T.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
     el.appendChild(renderer.domElement);
+    // The canvas is the primary interaction surface, so it has to be reachable
+    // and operable from the keyboard, not only by pointer.
+    renderer.domElement.tabIndex = 0;
+    renderer.domElement.setAttribute("role", "application");
     renderer.domElement.setAttribute(
       "aria-label",
-      "Interactive human anatomy. Drag to orbit, pinch or scroll to zoom, and tap a structure to inspect it.",
+      "Interactive human anatomy. Drag or use the arrow keys to orbit, scroll or press plus and minus to zoom, " +
+        "and tap or press Enter to inspect the structure at the centre of the view.",
     );
     const scene = new T.Scene(),
       camera = new T.PerspectiveCamera(34, 1, 0.005, 100),
@@ -397,14 +402,14 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
       }
     };
     const cancel = (e: PointerEvent) => tap.cancel(e.pointerId);
-    const up = (e: PointerEvent) => {
-      const validTap = tap.up(e.pointerId, e.clientX, e.clientY);
-      if (!validTap || !ready) return;
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointer.set(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        (-(e.clientY - rect.top) / rect.height) * 2 + 1,
-      );
+    /**
+     * Select whatever lies under a point in canvas coordinates. `radius` is the
+     * slack allowed when falling back to the projected markers of exploded
+     * pieces, which are too small to hit reliably.
+     */
+    const pickAt = (x: number, y: number, radius: number) => {
+      if (!ready) return;
+      pointer.set((x / el.clientWidth) * 2 - 1, -(y / el.clientHeight) * 2 + 1);
       raycaster.setFromCamera(pointer, camera);
       let nearest = Infinity,
         found = -1;
@@ -435,17 +440,98 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
           found = candidate.index;
         }
       }
-      if (found < 0 && amount > 0.45)
-        found = findTarget(
-          e.clientX - rect.left,
-          e.clientY - rect.top,
-          e.pointerType === "touch" ? 24 : 16,
-        );
+      if (found < 0 && amount > 0.45) found = findTarget(x, y, radius);
       if (found >= 0) {
         hover.hidden = true;
         select.current(atlas.parts[found].id);
       }
     };
+    const up = (e: PointerEvent) => {
+      if (!tap.up(e.pointerId, e.clientX, e.clientY)) return;
+      const rect = el.getBoundingClientRect();
+      pickAt(e.clientX - rect.left, e.clientY - rect.top, e.pointerType === "touch" ? 24 : 16);
+    };
+
+    // --- Keyboard camera and selection -------------------------------------
+    // OrbitControls' own key handling only pans, so orbit, zoom and select are
+    // driven here against the same controls target the pointer path uses.
+    const ORBIT_STEP = Math.PI / 24;
+    const ZOOM_STEP = 1.18;
+    const spherical = new T.Spherical();
+    const offset = new T.Vector3();
+    const orbitBy = (azimuth: number, polar: number) => {
+      offset.copy(camera.position).sub(controls.target);
+      spherical.setFromVector3(offset);
+      spherical.theta += azimuth;
+      spherical.phi = T.MathUtils.clamp(spherical.phi + polar, 1e-3, controls.maxPolarAngle);
+      camera.position.copy(controls.target).add(offset.setFromSpherical(spherical));
+      controls.update();
+      dirty = true;
+    };
+    const zoomBy = (factor: number) => {
+      offset.copy(camera.position).sub(controls.target);
+      const distance = T.MathUtils.clamp(
+        offset.length() * factor,
+        controls.minDistance,
+        controls.maxDistance,
+      );
+      camera.position.copy(controls.target).add(offset.setLength(distance));
+      controls.update();
+      dirty = true;
+    };
+    const PAN_STEP = 0.05;
+    const panBy = (x: number, y: number) => {
+      controls.target.x += x;
+      controls.target.y += y;
+      camera.position.x += x;
+      camera.position.y += y;
+      controls.update();
+      dirty = true;
+    };
+    /**
+     * Arrow keys orbit the assembled body and pan the exploded inventory, which
+     * is how the pointer already behaves at each extent.
+     */
+    const arrow = (x: number, y: number) => {
+      if (amount < 0.8) orbitBy(x * ORBIT_STEP, y * ORBIT_STEP);
+      else panBy(x * PAN_STEP, -y * PAN_STEP);
+    };
+    const keydown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      switch (e.key) {
+        case "ArrowLeft":
+          arrow(-1, 0);
+          break;
+        case "ArrowRight":
+          arrow(1, 0);
+          break;
+        case "ArrowUp":
+          arrow(0, -1);
+          break;
+        case "ArrowDown":
+          arrow(0, 1);
+          break;
+        case "+":
+        case "=":
+          zoomBy(1 / ZOOM_STEP);
+          break;
+        case "-":
+        case "_":
+          zoomBy(ZOOM_STEP);
+          break;
+        case "Enter":
+        case " ":
+          // Inspect whatever sits at the centre of the view, the keyboard
+          // equivalent of tapping the structure you have orbited into place.
+          pickAt(el.clientWidth / 2, el.clientHeight / 2, 24);
+          break;
+        default:
+          return;
+      }
+      // Arrows and space would otherwise scroll the page.
+      e.preventDefault();
+    };
+    renderer.domElement.addEventListener("keydown", keydown);
     renderer.domElement.addEventListener("pointerdown", down);
     renderer.domElement.addEventListener("pointermove", move);
     renderer.domElement.addEventListener("pointerup", up);
@@ -683,11 +769,13 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
       failed.current("The 3D session was paused by your device. Reload to continue.");
     };
     renderer.domElement.addEventListener("webglcontextlost", contextLost);
+    const removeKeydown = () => renderer.domElement.removeEventListener("keydown", keydown);
     return () => {
       disposed = true;
       abort.abort();
       cancelAnimationFrame(frame);
       observer.disconnect();
+      removeKeydown();
       controls.dispose();
       geometries.forEach((g) => g.dispose());
       materials.forEach((m) => m.dispose());
