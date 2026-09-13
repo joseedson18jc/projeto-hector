@@ -11,6 +11,10 @@
 .DS_Store
 *.tsbuildinfo
 
+# python bytecode from the rebuild scripts
+__pycache__/
+*.py[cod]
+
 # logs
 npm-debug.log*
 *.log
