@@ -56,7 +56,8 @@ function InputGroupAddon({
         if ((e.target as HTMLElement).closest("button")) {
           return;
         }
-        e.currentTarget.parentElement?.querySelector("input")?.focus();
+        // InputGroup also hosts InputGroupTextarea, which "input" never matched.
+        e.currentTarget.parentElement?.querySelector<HTMLElement>("input, textarea")?.focus();
       }}
       {...props}
     />

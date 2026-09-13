@@ -271,11 +271,27 @@ export function parseAtlas(value: unknown): Atlas {
     ids.add(part.id);
     if (typeof part.name !== "string" || !part.name.trim()) fail(`part ${part.id} has no name.`);
     if (!isSystemId(part.system)) fail(`part ${part.id} names an unknown system.`);
-    if (!Number.isInteger(part.chunk) || !atlas.chunks[part.chunk])
+    const chunk = atlas.chunks[part.chunk];
+    if (!Number.isInteger(part.chunk) || !chunk)
       fail(`part ${part.id} points at a missing geometry chunk.`);
     for (const field of ["positions", "normals", "indices", "vertexCount", "indexCount"] as const) {
-      if (!Number.isInteger(part[field]) || part[field] < 0)
+      if (!Number.isSafeInteger(part[field]) || part[field] < 0)
         fail(`part ${part.id} has an invalid ${field}.`);
+    }
+    // The scene builds typed-array views straight over these offsets. An
+    // unaligned offset or one that runs past the chunk throws a RangeError from
+    // inside geometry assembly, which is the failure this function exists to
+    // turn into something the reader can act on.
+    const spans = [
+      ["positions", part.positions, part.vertexCount * 3 * 4, 4],
+      ["normals", part.normals, part.vertexCount * 3 * 2, 2],
+      ["indices", part.indices, part.indexCount * 4, 4],
+    ] as const;
+    for (const [field, offset, byteLength, alignment] of spans) {
+      if (offset % alignment !== 0)
+        fail(`part ${part.id} has a ${field} offset that is not ${alignment}-byte aligned.`);
+      if (offset + byteLength > chunk.bytes)
+        fail(`part ${part.id} has a ${field} span that runs past its geometry chunk.`);
     }
     if (!isFinitePair(part.bounds)) fail(`part ${part.id} has invalid bounds.`);
   }

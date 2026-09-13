@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import * as T from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -23,10 +23,16 @@ export default function AnatomyScene({ atlas, state, onSelect, onProgress, onErr
     select = useRef(onSelect),
     progress = useRef(onProgress),
     failed = useRef(onError);
-  latest.current = state;
-  select.current = onSelect;
-  progress.current = onProgress;
-  failed.current = onError;
+  // Written after commit, not during render: React may discard or replay a
+  // concurrent render, and the animation loop reads these refs every frame, so
+  // writing them in the render body can feed the canvas state that never
+  // committed.
+  useLayoutEffect(() => {
+    latest.current = state;
+    select.current = onSelect;
+    progress.current = onProgress;
+    failed.current = onError;
+  });
   useEffect(() => {
     const el = host.current!;
     let disposed = false,

@@ -13,7 +13,11 @@ import assert from "node:assert/strict";
 
 const filename = process.argv[2] ?? "atlas.json";
 const base = new URL("../public/models/", import.meta.url);
-const atlas = JSON.parse(fs.readFileSync(new URL(filename, base)));
+const manifestUrl = new URL(filename, base);
+// The fingerprint is keyed by bare filename, so "./atlas.json" must not silently
+// miss the recorded entry and skip the regression guard.
+const manifestName = decodeURIComponent(manifestUrl.pathname.split("/").pop());
+const atlas = JSON.parse(fs.readFileSync(manifestUrl));
 
 const SYSTEM_IDS = new Set([
   "skeletal",
@@ -137,7 +141,7 @@ assert.equal(
 const expectations = JSON.parse(
   fs.readFileSync(new URL("./atlas-expectations.json", import.meta.url), "utf8"),
 );
-const expected = expectations[filename];
+const expected = expectations[manifestName];
 if (expected) {
   assert.equal(atlas.parts.length, expected.parts, "part count changed");
   assert.equal(atlas.concepts.length, expected.concepts, "concept count changed");
@@ -148,7 +152,7 @@ if (expected) {
 }
 
 console.log(
-  `${filename}: verified ${ids.size.toLocaleString()} individually indexed meshes across ` +
+  `${manifestName}: verified ${ids.size.toLocaleString()} individually indexed meshes across ` +
     `${systemCounts.size} systems, ${atlas.concepts.length.toLocaleString()} complete concept ` +
     `mappings, ${tris.toLocaleString()} triangles, every binary buffer, index range, buffer ` +
     `alignment, normal length, and bounds containment ` +

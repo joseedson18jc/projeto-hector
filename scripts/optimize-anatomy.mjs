@@ -110,8 +110,13 @@ manifest.optimized = {
   preservedMeshes: manifest.parts.length,
 };
 fs.writeFileSync(new URL(name, dir), JSON.stringify(manifest));
-// Remove only converter outputs superseded by the optimized chunks.
-for (const superseded of originals) fs.unlinkSync(new URL(superseded, dir));
+// Remove only converter outputs superseded by the optimized chunks. A --prefix
+// that collides with the input chunk names overwrites those files in place, so
+// deleting every original would delete the output the manifest now references.
+const outputs = new Set(chunks.map((c) => c.url.split("/").pop()));
+for (const superseded of originals) {
+  if (!outputs.has(superseded)) fs.unlinkSync(new URL(superseded, dir));
+}
 console.log(
   JSON.stringify({
     parts: manifest.parts.length,

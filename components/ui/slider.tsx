@@ -10,11 +10,9 @@ function Slider({
   max = 100,
   ...props
 }: SliderPrimitive.Root.Props) {
-  const _values = Array.isArray(value)
-    ? value
-    : Array.isArray(defaultValue)
-      ? defaultValue
-      : [min, max];
+  // _values.length is the thumb count, so the [min, max] fallback vendored
+  // from shadcn turned an unconfigured <Slider /> into a two-thumb range.
+  const _values = Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min];
 
   return (
     <SliderPrimitive.Root

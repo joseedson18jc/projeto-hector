@@ -1,6 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @custom-variant dark (&:is(.dark *));
+/* Base UI marks orientation as data-orientation="horizontal"/"vertical", but the
+   vendored shadcn components style it with data-horizontal:/data-vertical:.
+   Without these, Tailwind emits [data-horizontal] selectors that never match, so
+   the slider's track and progress fill collapsed to zero height: the bar was
+   invisible and only the thumb could be grabbed. */
+@custom-variant data-horizontal (&[data-orientation="horizontal"]);
+@custom-variant data-vertical (&[data-orientation="vertical"]);
 :root {
   font-family: "Helvetica Neue", Arial, sans-serif;
   color: #20242b;
